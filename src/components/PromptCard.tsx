@@ -4,9 +4,10 @@ import { CopyIcon, CheckIcon } from './icons';
 
 interface PromptCardProps {
   text: string;
+  className?: string;
 }
 
-export const PromptCard: React.FC<PromptCardProps> = ({ text }) => {
+export const PromptCard: React.FC<PromptCardProps> = ({ text, className }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -16,8 +17,8 @@ export const PromptCard: React.FC<PromptCardProps> = ({ text }) => {
   };
 
   return (
-    <div className="relative bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-md group">
-      <p className="text-gray-300 leading-relaxed">{text}</p>
+    <div className={`relative bg-gray-800 p-5 rounded-xl border border-gray-700 shadow-md group ${className ?? ''}`}>
+      <p className="text-gray-300 leading-relaxed h-full">{text}</p>
       <button
         onClick={handleCopy}
         className="absolute top-3 right-3 p-2 bg-gray-700 rounded-full text-gray-400 hover:bg-gray-600 hover:text-white transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100"

@@ -7,6 +7,8 @@ interface IdeaInputFormProps {
   setIdea: (idea: string) => void;
   promptCount: number;
   setPromptCount: (count: number) => void;
+  aspectRatio: '9:16' | '16:9' | '1:1';
+  setAspectRatio: (ratio: '9:16' | '16:9' | '1:1') => void;
   onGenerate: () => void;
   onSuggest: () => void;
   isLoading: boolean;
@@ -18,6 +20,8 @@ export const IdeaInputForm: React.FC<IdeaInputFormProps> = ({
   setIdea,
   promptCount,
   setPromptCount,
+  aspectRatio,
+  setAspectRatio,
   onGenerate,
   onSuggest,
   isLoading,
@@ -57,8 +61,8 @@ export const IdeaInputForm: React.FC<IdeaInputFormProps> = ({
         </button>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-        <div className="w-full sm:w-1/2">
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+        <div className="w-full lg:w-1/3">
           <label htmlFor="prompt-count" className="block mb-2 text-sm font-medium text-gray-400">
             Số lượng prompt:
           </label>
@@ -71,6 +75,22 @@ export const IdeaInputForm: React.FC<IdeaInputFormProps> = ({
             className="w-full border-gray-700 border p-3 rounded-lg appearance-none cursor-pointer accent-cyan-500"
             disabled={isLoading || isSuggesting}
           />
+        </div>
+        <div className="w-full lg:w-1/3">
+          <label htmlFor="aspect-ratio" className="block mb-2 text-sm font-medium text-gray-400">
+            Kích thước hình ảnh
+          </label>
+          <select
+            id="aspect-ratio"
+            value={aspectRatio}
+            onChange={(e) => setAspectRatio(e.target.value as '9:16' | '16:9' | '1:1')}
+            className="w-full border-gray-700 border p-3 rounded-lg bg-gray-900 text-gray-200"
+            disabled={isLoading || isSuggesting}
+          >
+            <option value="9:16">9:16 (dọc)</option>
+            <option value="16:9">16:9 (ngang)</option>
+            <option value="1:1">1:1 (vuông)</option>
+          </select>
         </div>
         <button
           type="submit"

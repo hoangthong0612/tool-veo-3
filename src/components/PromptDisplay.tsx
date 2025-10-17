@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { PromptPair } from '@/types/main';
 import { PromptCard } from './PromptCard';
 import { CameraIcon, VideoIcon } from './icons';
@@ -8,10 +8,15 @@ import { ImageCard } from './ImageCard';
 
 interface PromptDisplayProps {
   prompts: PromptPair[];
+  aspectRatio?: '9:16' | '16:9' | '1:1';
 }
 
-export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts }) => {
+export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts, aspectRatio = '1:1' }) => {
   const [workflowId, setWorkflowId] = React.useState<any | null>(null);
+  const createdOnceRef = useRef(false);
+  const rightColRef = useRef<HTMLDivElement | null>(null);
+  const [leftHeight, setLeftHeight] = useState<number | null>(null);
+  const rowHeightsRef = useRef<Record<number, number>>({});
   useEffect(() => {
 
     const fetchWorkflowId = async () => {
@@ -32,36 +37,35 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({ prompts }) => {
 
     };
 
+    if (createdOnceRef.current) return;
+    createdOnceRef.current = true;
     fetchWorkflowId();
 
 
 
   }, []);
+  
+  // Row-based layout: each image matches its prompt height by default
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Image Prompts Column */}
-      <div className="space-y-6">
-        <h3 className="flex items-center justify-center gap-3 text-xl font-semibold text-center text-rose-400">
-          <CameraIcon className="w-6 h-6" />
-          <span>Prompt tạo hình ảnh</span>
-        </h3>
-        {prompts.map((p, index) => (
-          <ImageCard key={`img-${index}`} text={p.imagePrompt} workflowId={workflowId} />
-        ))}
-      </div>
-
-
-
-      {/* Video Prompts Column */}
-      <div className="space-y-6">
-        <h3 className="flex items-center justify-center gap-3 text-xl font-semibold text-center text-indigo-400">
-          <VideoIcon className="w-6 h-6" />
-          <span>Prompt tạo video (8 giây)</span>
-        </h3>
-        {prompts.map((p, index) => (
-          <PromptCard key={`vid-${index}`} text={p.videoPrompt} />
-        ))}
-      </div>
+    <div className="space-y-8">
+      {prompts.map((p, index) => (
+        <div key={`row-${index}`} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          <div className="lg:col-span-3 flex" style={{ alignItems: 'stretch' }}>
+            <ImageCard 
+              text={p.imagePrompt} 
+              workflowId={workflowId} 
+              aspectRatio={aspectRatio}
+              onHeightChange={(h) => { rowHeightsRef.current[index] = h; }}
+            />
+          </div>
+          <div className="lg:col-span-9">
+            <PromptCard 
+              text={p.videoPrompt}
+              className={rowHeightsRef.current[index] ? 'h-full overflow-auto' : ''}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

@@ -1,16 +1,30 @@
 import { NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
     try {
-        const { searchParams } = new URL(request.url);
+        const { workflowId, prompt }: { workflowId: string; prompt: string } = await request.json();
+        if (!workflowId || !prompt) {
+            return NextResponse.json({ status: 0, message: "Thiếu tham số" }, { status: 400 });
+        }
 
-        const token = searchParams.get("token");
-        const workflowId = searchParams.get("workflowId");
-        const prompt = searchParams.get("prompt");
+        // Get token server-side from session endpoint with cookie
+        const sessionRes = await fetch(`https://labs.google/fx/api/auth/session`, {
+            headers: {
+                Cookie: process.env.NEXT_PUBLIC_COOKIE_NAME ?? "",
+            },
+        });
+        if (!sessionRes.ok) {
+            return NextResponse.json({ status: 0, message: "Không thể lấy token" }, { status: 502 });
+        }
+        const sessionData = await sessionRes.json();
+        const token = sessionData?.access_token as string | undefined;
+        if (!token) {
+            return NextResponse.json({ status: 0, message: "Token không hợp lệ" }, { status: 401 });
+        }
+
         const res = await fetch(`https://aisandbox-pa.googleapis.com/v1/whisk:generateImage`, {
             method: "POST",
             headers: {
-                // 👇 Chỉ server mới được quyền gắn cookie header
                 authorization: 'Bearer ' + token,
             },
             body: JSON.stringify({
@@ -30,14 +44,13 @@ export async function GET(request: Request) {
         });
 
         if (!res.ok) {
-            return NextResponse.json({ status: 0, message: "Không có dữ liệu" });
+            return NextResponse.json({ status: 0, message: "Không có dữ liệu" }, { status: res.status });
         }
 
         const data = await res.json();
         return NextResponse.json(data);
     } catch (err) {
         console.log('Error during image generation:', err);
-        console.error(err);
-        return NextResponse.json({ status: 0, message: "Lỗi proxy" });
+        return NextResponse.json({ status: 0, message: "Lỗi proxy" }, { status: 500 });
     }
 }

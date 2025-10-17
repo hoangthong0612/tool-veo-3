@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { IdeaInputForm } from '@/components/IdeaInputForm';
 import { PromptDisplay } from '@/components/PromptDisplay';
@@ -12,18 +12,14 @@ import { useGlobal } from "@/context/GlobalContext";
 import Image from "next/image";
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const { tokenData } = useGlobal();
-  if (!tokenData) {
-    return <div>Loading...</div>;
-  }
-
-  if (!tokenData.user) {
-    return ("Lỗi token")
-  }
   console.log("User data:", tokenData);
 
   const [idea, setIdea] = useState<string>('');
   const [promptCount, setPromptCount] = useState<number>(3);
+  const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('1:1');
   const [generatedPrompts, setGeneratedPrompts] = useState<PromptPair[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSuggesting, setIsSuggesting] = useState<boolean>(false);
@@ -62,18 +58,27 @@ export default function Home() {
     }
   }, [idea, promptCount]);
 
-  return (
-    <>
-      <div className="container mx-auto p-4">
-        <div className="flex items-center  flex-col">
-          <img src={tokenData.user.image} alt="" className="rounded-full" />
-          <h1 className="py-5">Xin chào :  {tokenData.user.name}</h1>
-          <main className="mt-8 w-full">
+  const renderContent = () => {
+    if (!mounted || !tokenData) {
+      return <div>Loading...</div>;
+    }
+    if (!tokenData.user) {
+      return <div>Lỗi token</div>;
+    }
+    return (
+      <>
+        <div className="container mx-auto p-4">
+          <div className="flex items-center  flex-col">
+            <img src={tokenData.user.image} alt="" className="rounded-full" />
+            <h1 className="py-5">Xin chào :  {tokenData.user.name}</h1>
+            <main className="mt-8 w-full">
             <IdeaInputForm
               idea={idea}
               setIdea={setIdea}
               promptCount={promptCount}
               setPromptCount={setPromptCount}
+              aspectRatio={aspectRatio}
+              setAspectRatio={setAspectRatio}
               onGenerate={handleGeneratePrompts}
               onSuggest={handleSuggestIdea}
               isLoading={isLoading}
@@ -91,14 +96,15 @@ export default function Home() {
             {generatedPrompts.length > 0 && !isLoading && (
               <div className="mt-12">
                 <h2 className="text-2xl font-bold text-center text-cyan-400 mb-6">Kết quả tạo Prompt</h2>
-                <PromptDisplay prompts={generatedPrompts} />
+                <PromptDisplay prompts={generatedPrompts} aspectRatio={aspectRatio} />
               </div>
             )}
-          </main>
+            </main>
+          </div>
         </div>
+      </>
+    );
+  };
 
-
-      </div>
-    </>
-  );
+  return renderContent();
 }
