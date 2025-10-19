@@ -76,7 +76,11 @@ export const ImageCard: React.FC<PromptCardProps> = ({ text, workflowId, aspectR
                     el.__ro = ro;
                 }}>
                     <div 
-                        className={`w-full `}
+                        className={`w-full mx-auto ${
+                            aspectRatio === '9:16' ? 'aspect-[9/16]' : 
+                            aspectRatio === '16:9' ? 'aspect-[16/9]' : 
+                            'aspect-square'
+                        }`}
                     >
                         <img 
                             className="w-full h-full object-cover rounded-lg" 
