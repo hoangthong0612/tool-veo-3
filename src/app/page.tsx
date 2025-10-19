@@ -1,108 +1,217 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Header } from '@/components/Header';
-import { IdeaInputForm } from '@/components/IdeaInputForm';
-import { PromptDisplay } from '@/components/PromptDisplay';
-import { Spinner } from '@/components/Spinner';
-import { suggestIdea, generatePrompts } from '@/services/geminiService';
-import type { PromptPair } from '@/types/main';
+
+import type { GenerationMode, AspectRatio, Character, Scene, Landscape } from '@/types/main';
+
+// Import components
+import Loader from '@/components/Loader';
+import ErrorMessage from '@/components/ErrorMessage';
+import InputForm from '@/components/InputForm';
+import AssetManager from '@/components/CharacterManager'; // Renamed to AssetManager
+import Storyboard from '@/components/Storyboard';
 
 import { useGlobal } from "@/context/GlobalContext";
 import Image from "next/image";
 
+// Import services
+import * as aiService from '@/services/geminiService';
+
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
-  const { tokenData } = useGlobal();
-  console.log("User data:", tokenData);
 
-  const [idea, setIdea] = useState<string>('');
-  const [promptCount, setPromptCount] = useState<number>(3);
-  const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('1:1');
-  const [generatedPrompts, setGeneratedPrompts] = useState<PromptPair[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSuggesting, setIsSuggesting] = useState<boolean>(false);
+
+  const [mode, setMode] = useState<GenerationMode>('idea');
+  const [idea, setIdea] = useState('');
+  const [style, setStyle] = useState('Cinematic, hyper-realistic, 4K');
+  const [duration, setDuration] = useState(16);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
+  const [script, setScript] = useState('');
+
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [landscapes, setLandscapes] = useState<Landscape[]>([]);
+  const [scenes, setScenes] = useState<Scene[]>([]);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const handleSuggestIdea = useCallback(async () => {
-    setIsSuggesting(true);
-    setError(null);
-    try {
-      const suggestedIdea = await suggestIdea();
-      setIdea(suggestedIdea);
-    } catch (err) {
-      setError('Không thể gợi ý ý tưởng. Vui lòng thử lại.');
-      console.error(err);
-    } finally {
-      setIsSuggesting(false);
-    }
-  }, []);
+  const [step, setStep] = useState(1); // 1: Input, 2: Asset Mgmt, 3: Results
 
-  const handleGeneratePrompts = useCallback(async () => {
-    if (!idea.trim()) {
-      setError('Vui lòng nhập một ý tưởng.');
-      return;
-    }
+  const handleSuggestIdea = async () => {
     setIsLoading(true);
+    setLoadingMessage('Generating an idea...');
     setError(null);
-    setGeneratedPrompts([]);
     try {
-      const prompts = await generatePrompts(idea, promptCount);
-      setGeneratedPrompts(prompts);
-    } catch (err) {
-      setError('Không thể tạo prompt. Vui lòng kiểm tra ý tưởng của bạn và thử lại.');
-      console.error(err);
+      const suggestedIdea = await aiService.suggestIdea(idea);
+      setIdea(suggestedIdea);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'An unknown error occurred');
     } finally {
       setIsLoading(false);
     }
-  }, [idea, promptCount]);
+  };
+
+  const handleGenerateScript = async () => {
+    if (mode === 'idea' && !idea) {
+      setError('Please enter an idea.');
+      return;
+    }
+    if (mode === 'script' && !script) {
+      setError('Please enter your script.');
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadingMessage('Analyzing input and creating script...');
+    setError(null);
+
+    try {
+      const result = await aiService.generateScriptAndCharacters(mode, idea, style, duration, script);
+      setScript(result.script);
+      setCharacters(result.characters.map((c: any) => ({ ...c, id: self.crypto.randomUUID() })));
+      setLandscapes(result.landscapes.map((l: any) => ({ ...l, id: self.crypto.randomUUID() })));
+      setStep(2);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to generate script. The model might have returned an invalid format.');
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGenerateAssets = async () => {
+    if (!script) {
+      setError('No script available to generate assets.');
+      return;
+    }
+
+    // if (window.aistudio) {
+    //   try {
+    //     const hasKey = await window.aistudio.hasSelectedApiKey();
+    //     if (!hasKey) {
+    //       await window.aistudio.openSelectKey();
+    //     }
+    //   } catch (e) {
+    //     setError('Could not verify API key. Please try again.');
+    //     return;
+    //   }
+    // } else {
+    //   console.warn('aistudio context not found, skipping API key check.');
+    // }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      setLoadingMessage('Breaking script into scenes...');
+      const generatedScenes = await aiService.generateScenePrompts(script, characters, landscapes, duration, style);
+      setScenes(generatedScenes);
+      setStep(3);
+
+      for (const [index, scene] of generatedScenes.entries()) {
+        const currentScene = scene;
+        setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, isGeneratingImage: true } : s));
+        setLoadingMessage(`Generating image for scene ${index + 1}/${generatedScenes.length}...`);
+
+        try {
+          const imageData = await aiService.generateImageForScene(currentScene, characters, landscapes, style);
+          setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, generatedImage: imageData, isGeneratingImage: false, isGeneratingVideo: true } : s));
+
+          setLoadingMessage(`Generating video for scene ${index + 1}/${generatedScenes.length} (this can take a few minutes)...`);
+          const videoUrl = await aiService.generateVideoForScene(currentScene, imageData, aspectRatio);
+          setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, generatedVideoUrl: videoUrl, isGeneratingVideo: false } : s));
+        } catch (e) {
+          console.error(`Error processing scene ${currentScene.sceneNumber}:`, e);
+          let errorMessage = e instanceof Error ? e.message : "An unknown error occurred";
+          if (errorMessage.includes("Requested entity was not found")) {
+            errorMessage = "API Key error. Please re-select your API key and try again.";
+          }
+          setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, isGeneratingImage: false, isGeneratingVideo: false } : s));
+          setError(`Failed on scene ${currentScene.sceneNumber}: ${errorMessage}`);
+          break;
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to generate scene prompts.');
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+      setLoadingMessage('');
+    }
+  };
+
+  const handleDownloadAll = async (type: 'image' | 'video') => {
+    for (const scene of scenes) {
+      let url;
+      let filename;
+      if (type === 'image' && scene.generatedImage) {
+        url = `data:image/png;base64,${scene.generatedImage}`;
+        filename = `scene_${scene.sceneNumber}_image.png`;
+      } else if (type === 'video' && scene.generatedVideoUrl) {
+        url = scene.generatedVideoUrl;
+        filename = `scene_${scene.sceneNumber}_video.mp4`;
+      }
+
+      if (url && filename) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        if (type === 'video') URL.revokeObjectURL(url);
+      }
+    }
+  };
 
   const renderContent = () => {
-    if (!mounted || !tokenData) {
+    if (!mounted) {
       return <div>Loading...</div>;
     }
-    if (!tokenData.user) {
-      return <div>Lỗi token</div>;
-    }
+
     return (
-      <>
-        <div className="container mx-auto p-4">
-          <div className="flex items-center  flex-col">
-            <img src={tokenData.user.image} alt="" className="rounded-full" />
-            <h1 className="py-5">Xin chào :  {tokenData.user.name}</h1>
-            <main className="mt-8 w-full">
-            <IdeaInputForm
+      <div className="min-h-screen bg-gray-900 text-gray-200 p-4 md:p-8">
+        {isLoading && <Loader message={loadingMessage} />}
+        <div className="max-w-7xl mx-auto">
+        
+          <ErrorMessage error={error} onClose={() => setError(null)} />
+
+          {step === 1 && (
+            <InputForm
+              mode={mode}
+              setMode={setMode}
               idea={idea}
               setIdea={setIdea}
-              promptCount={promptCount}
-              setPromptCount={setPromptCount}
+              style={style}
+              setStyle={setStyle}
+              duration={duration}
+              setDuration={setDuration}
               aspectRatio={aspectRatio}
               setAspectRatio={setAspectRatio}
-              onGenerate={handleGeneratePrompts}
-              onSuggest={handleSuggestIdea}
-              isLoading={isLoading}
-              isSuggesting={isSuggesting}
+              script={script}
+              setScript={setScript}
+              onSuggestIdea={handleSuggestIdea}
+              onGenerateScript={handleGenerateScript}
             />
+          )}
 
-            {error && (
-              <div className="mt-6 bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-center">
-                <p>{error}</p>
-              </div>
-            )}
+          {step === 2 && (
+            <AssetManager
+              characters={characters}
+              setCharacters={setCharacters}
+              landscapes={landscapes}
+              setLandscapes={setLandscapes}
+              onGenerateAssets={handleGenerateAssets}
+            />
+          )}
 
-            {isLoading && <Spinner />}
-
-            {generatedPrompts.length > 0 && !isLoading && (
-              <div className="mt-12">
-                <h2 className="text-2xl font-bold text-center text-cyan-400 mb-6">Kết quả tạo Prompt</h2>
-                <PromptDisplay prompts={generatedPrompts} aspectRatio={aspectRatio} />
-              </div>
-            )}
-            </main>
-          </div>
+          {step === 3 && (
+            <Storyboard scenes={scenes} onDownloadAll={handleDownloadAll} />
+          )}
         </div>
-      </>
+      </div>
     );
   };
 
