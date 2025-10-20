@@ -12,11 +12,11 @@ export async function GET() {
         "json": {
           "clientContext": {
             "tool": "BACKBONE",
-            "sessionId": ";1760633829782"
+            "sessionId": ";" + Array.from({ length: 13 }, () => Math.floor(Math.random() * 10)).join('')
           },
           "mediaGenerationIdsToCopy": [],
           "workflowMetadata": {
-            "workflowName": "Whisk: 17/10/25"
+            "workflowName": "workflow_" + Date.now(),
           }
         }
       })
@@ -27,7 +27,8 @@ export async function GET() {
     }
 
     const data = await res.json();
-    return NextResponse.json(data);
+
+    return NextResponse.json({ status: 1, workflowId: data.result.data.json.result.workflowId });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ status: 0, message: "Lỗi proxy" });
