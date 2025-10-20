@@ -1,9 +1,10 @@
+import { AspectRatio } from "@/types/main";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
     try {
-        const { workflowId, prompt }: { workflowId: string; prompt: string } = await request.json();
-        if (!workflowId || !prompt) {
+        const { workflowId, prompt, aspectRatio }: { workflowId: string; prompt: string; aspectRatio: AspectRatio } = await request.json();
+        if (!workflowId || !prompt || !aspectRatio) {
             return NextResponse.json({ status: 0, message: "Thiếu tham số" }, { status: 400 });
         }
 
@@ -22,6 +23,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ status: 0, message: "Token không hợp lệ" }, { status: 401 });
         }
 
+        let aspectRatioSetting = "IMAGE_ASPECT_RATIO_PORTRAIT";
+        if (aspectRatio === '16:9') {
+            aspectRatioSetting = "IMAGE_ASPECT_RATIO_LANDSCAPE";
+        } else if (aspectRatio === '1:1') {
+            aspectRatioSetting = "IMAGE_ASPECT_RATIO_SQUARE";
+        }
+
         const res = await fetch(`https://aisandbox-pa.googleapis.com/v1/whisk:generateImage`, {
             method: "POST",
             headers: {
@@ -35,7 +43,7 @@ export async function POST(request: Request) {
                 },
                 "imageModelSettings": {
                     "imageModel": "IMAGEN_3_5",
-                    "aspectRatio": "IMAGE_ASPECT_RATIO_LANDSCAPE"
+                    "aspectRatio": aspectRatioSetting
                 },
                 "prompt": prompt,
                 "mediaCategory": "MEDIA_CATEGORY_SUBJECT"

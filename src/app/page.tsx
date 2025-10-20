@@ -185,7 +185,7 @@ export default function Home() {
       await Promise.all(charactersWithRefs.map(async (char, index) => {
         if (!char.refImageBase64) {
           try {
-            const imageData = await aiService.generateCharacterReferenceImage(char.description, style, workflowId ?? "");
+            const imageData = await aiService.generateCharacterReferenceImage(char.description, style, workflowId ?? "", aspectRatio);
             charactersWithRefs[index] = {
               ...char,
               id: imageData.id,
@@ -211,9 +211,9 @@ export default function Home() {
         setLoadingMessage(`Generating image for scene ${index + 1}/${generatedScenes.length}...`);
 
         try {
-          const imageData = await aiService.generateImageForScene(currentScene, charactersWithRefs, landscapes, style, workflowId ?? "");
+          const imageData = await aiService.generateImageForScene(currentScene, charactersWithRefs, landscapes, style, workflowId ?? "", aspectRatio);
           setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, generatedImage: imageData, isGeneratingImage: false, isGeneratingVideo: true } : s));
-          
+
           setLoadingMessage(`Generating video for scene ${index + 1}/${generatedScenes.length} (this can take a few minutes)...`);
           const videoUrl = await aiService.generateVideoForScene(currentScene, imageData, aspectRatio);
           setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, generatedVideoUrl: videoUrl, isGeneratingVideo: false } : s));
@@ -225,7 +225,7 @@ export default function Home() {
           }
           setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, isGeneratingImage: false, isGeneratingVideo: false } : s));
           setError(`Failed on scene ${currentScene.sceneNumber}: ${errorMessage}`);
-          break;
+          continue;
         }
       }
     } catch (e) {

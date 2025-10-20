@@ -1,8 +1,9 @@
+import { AspectRatio } from "@/types/main";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
     try {
-        const { workflowId, prompt, characters }: { workflowId: string; prompt: string; characters: any[] } = await request.json();
+        const { workflowId, prompt, characters, aspectRatio }: { workflowId: string; prompt: string; characters: any[]; aspectRatio: AspectRatio } = await request.json();
         if (!workflowId || !prompt) {
             return NextResponse.json({ status: 0, message: "Thiếu tham số" }, { status: 400 });
         }
@@ -35,6 +36,12 @@ export async function POST(request: Request) {
                 );
             }
         });
+        let aspectRatioSetting = "IMAGE_ASPECT_RATIO_PORTRAIT";
+        if (aspectRatio === '16:9') {
+            aspectRatioSetting = "IMAGE_ASPECT_RATIO_LANDSCAPE";
+        } else if (aspectRatio === '1:1') {
+            aspectRatioSetting = "IMAGE_ASPECT_RATIO_SQUARE";
+        }
 
         const res = await fetch(`https://aisandbox-pa.googleapis.com/v1/whisk:runImageRecipe`, {
             method: "POST",
@@ -50,7 +57,7 @@ export async function POST(request: Request) {
                 "seed": 1000000,
                 "imageModelSettings": {
                     "imageModel": "R2I",
-                    "aspectRatio": "IMAGE_ASPECT_RATIO_LANDSCAPE"
+                    "aspectRatio": aspectRatioSetting
                 },
                 "userInstruction": prompt,
                 "recipeMediaInputs": imageParts

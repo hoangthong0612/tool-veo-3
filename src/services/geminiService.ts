@@ -177,10 +177,15 @@ ${landscapeDescriptions}
   return JSON.parse(response.text ?? "");
 };
 
-export const generateCharacterReferenceImage = async (description: string, style: string, workflowId: string): Promise<any> => {
+export const generateCharacterReferenceImage = async (description: string, style: string, workflowId: string, aspectRatio: AspectRatio): Promise<any> => {
   // const ai = getAi();
 
-  const prompt = `Full-body character concept art. A detailed portrait of the following character in a neutral, standing pose against a plain, light-colored background. The image should be a clear reference for the character's appearance. Style: ${style}. Character description: ${description}`;
+  const prompt = `Full-body character concept art. 
+A detailed portrait of the following character in a neutral, standing pose with no background (transparent or plain white). 
+Focus entirely on the character’s design and appearance — no scenery, no effects, no shadows. 
+The image should serve as a clear reference for the character's full-body look. 
+Style: ${style}. 
+Character description: ${description}`;
 
   // const imageResponse = await ai.models.generateContent({
   //   model: 'gemini-2.5-flash-image',
@@ -192,7 +197,7 @@ export const generateCharacterReferenceImage = async (description: string, style
     const res = await fetch(`/api/create-subject-text`, {
       method: "POST",
       credentials: "include", // gửi cookie thật của user nếu cần
-      body: JSON.stringify({ workflowId, prompt }),
+      body: JSON.stringify({ workflowId, prompt, aspectRatio }),
       headers: {
         "Content-Type": "application/json",
       },
@@ -222,7 +227,7 @@ export const generateCharacterReferenceImage = async (description: string, style
 };
 
 
-export const generateImageForScene = async (scene: Scene, characters: Character[], landscapes: Landscape[], style: string, workflowId: string): Promise<string> => {
+export const generateImageForScene = async (scene: Scene, characters: Character[], landscapes: Landscape[], style: string, workflowId: string, aspectRatio: AspectRatio): Promise<string> => {
   // const ai = getAi();
 
   const fullImagePrompt = `${scene.imagePrompt}, in the style of ${style}`;
@@ -269,7 +274,7 @@ export const generateImageForScene = async (scene: Scene, characters: Character[
     const res = await fetch(`/api/create-image-have-subject`, {
       method: "POST",
       credentials: "include", // gửi cookie thật của user nếu cần
-      body: JSON.stringify({ workflowId, prompt : fullImagePrompt, characters,  }),
+      body: JSON.stringify({ workflowId, prompt: fullImagePrompt, characters, aspectRatio }),
       headers: {
         "Content-Type": "application/json",
       },
