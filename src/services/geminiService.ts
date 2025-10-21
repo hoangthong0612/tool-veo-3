@@ -227,10 +227,12 @@ Character description: ${description}`;
 };
 
 
-export const generateImageForScene = async (scene: Scene, characters: Character[], landscapes: Landscape[], style: string, workflowId: string, aspectRatio: AspectRatio): Promise<string> => {
+export const generateImageForScene = async (scene: Scene, characters: Character[], landscapes: Landscape[], style: string, workflowId: string, aspectRatio: AspectRatio): Promise<any> => {
   // const ai = getAi();
 
   const fullImagePrompt = `${scene.imagePrompt}, in the style of ${style}`;
+
+  //  const ai = getAi();
 
   // const imageParts: any[] = [{ text: fullImagePrompt }];
 
@@ -286,48 +288,95 @@ export const generateImageForScene = async (scene: Scene, characters: Character[
     const imagePanels = data?.imagePanels ?? data?.imagePanels ?? [];
     const imagePart = imagePanels[0]?.generatedImages?.[0]?.encodedImage;
     if (!imagePart) throw new Error("Reference image data not found in response.");
-    return imagePart;
+    return {
+      id: imagePanels[0]?.generatedImages?.[0]?.mediaGenerationId,
+      image: imagePart
+    };
   } catch (e) {
     throw new Error("Reference image data not found in response.");
   }
 };
 
 
-export const generateVideoForScene = async (scene: Scene, imageData: string, aspectRatio: AspectRatio): Promise<string> => {
-  const ai = getAi();
-  let operation = await ai.models.generateVideos({
-    model: 'veo-3.1-fast-generate-preview',
-    prompt: scene.videoPrompt,
-    image: {
-      imageBytes: imageData,
-      mimeType: 'image/png'
-    },
-    config: {
-      numberOfVideos: 1,
-      resolution: '720p',
-      aspectRatio: aspectRatio,
-    }
-  });
+export const generateVideoForScene = async (scene: Scene, imageData: string, aspectRatio: AspectRatio, projectId: string): Promise<string> => {
+  // const ai = getAi();
+  // let operation = await ai.models.generateVideos({
+  //   model: 'veo-3.1-fast-generate-preview',
+  //   prompt: scene.videoPrompt,
+  //   image: {
+  //     imageBytes: imageData,
+  //     mimeType: 'image/png'
+  //   },
+  //   config: {
+  //     numberOfVideos: 1,
+  //     resolution: '720p',
+  //     aspectRatio: aspectRatio,
+  //   }
+  // });
 
-  while (!operation.done) {
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    operation = await ai.operations.getVideosOperation({ operation: operation });
-  }
+  // while (!operation.done) {
+  //   await new Promise(resolve => setTimeout(resolve, 10000));
+  //   operation = await ai.operations.getVideosOperation({ operation: operation });
+  // }
 
-  const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-  if (downloadLink) {
-    const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-    if (!videoResponse.ok) {
-      const errorText = await videoResponse.text();
-      console.error("Video fetch error:", errorText);
-      if (errorText.includes("Requested entity was not found")) {
-        throw new Error("API Key error. Please re-select your API key and try again.");
+  // const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+  // if (downloadLink) {
+  //   const videoResponse = await fetch(`${downloadLink}&key=${process.env.NEXT_PUBLIC_GEMINI_API_KEY}`);
+  //   if (!videoResponse.ok) {
+  //     const errorText = await videoResponse.text();
+  //     console.error("Video fetch error:", errorText);
+  //     if (errorText.includes("Requested entity was not found")) {
+  //       throw new Error("API Key error. Please re-select your API key and try again.");
+  //     }
+  //     throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+  //   }
+  //   const videoBlob = await videoResponse.blob();
+  //   return URL.createObjectURL(videoBlob);
+  // } else {
+  //   throw new Error("Video URI not found in operation response.");
+  // }
+  try {
+    const res = await fetch(`/api/upload-image-video`, {
+      method: "POST",
+      credentials: "include", // gửi cookie thật của user nếu cần
+      body: JSON.stringify({ imageData, aspectRatio, prompt: scene.imagePrompt, projectId }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) throw new Error("Không có dữ liệu");
+    const data = await res.json();
+    console.log("Fetched token data:", data);
+    let operation = true;
+    let data2 = null;
+    while (operation) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      const res = await fetch(`/api/check-video`, {
+        method: "POST",
+        credentials: "include", // gửi cookie thật của user nếu cần
+        body: JSON.stringify({ name: data.operations[0].operation.name, screenId: data.operations[0].sceneId }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!res.ok) throw new Error("Không có dữ liệu");
+      data2 = await res.json();
+      if (data2.operations[0].operation.metadata) {
+        operation = false;
       }
-      throw new Error(`Failed to fetch video: ${videoResponse.statusText}`);
+
     }
-    const videoBlob = await videoResponse.blob();
+    // Use the image panels from the fetched response (try common property names)
+    // const imagePanels = data?.imagePanels ?? data?.imagePanels ?? [];
+    // const imagePart = imagePanels[0]?.generatedImages?.[0]?.encodedImage;
+    // if (!imagePart) throw new Error("Reference image data not found in response.");
+    // return imagePart;
+    console.log("Final video data:", data2);
+    const proxyUrl = `/api/proxy-video?url=${encodeURIComponent(data2.operations[0].operation.metadata.video.fifeUrl)}`;
+    const video = await fetch(proxyUrl);
+    const videoBlob = await video.blob();
     return URL.createObjectURL(videoBlob);
-  } else {
-    throw new Error("Video URI not found in operation response.");
+  } catch (e) {
+    throw new Error("Reference image data not found in response.");
   }
 };

@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
     try {
-        const { workflowId, prompt }: { workflowId: string; prompt: string } = await request.json();
-        if (!workflowId || !prompt) {
+        const { name, screenId }: { name: string, screenId: string } = await request.json();
+        console.log("Checking video generation status for:", { name, screenId });
+        if (!name || !screenId) {
             return NextResponse.json({ status: 0, message: "Thiếu tham số" }, { status: 400 });
         }
 
@@ -22,32 +23,33 @@ export async function POST(request: Request) {
             return NextResponse.json({ status: 0, message: "Token không hợp lệ" }, { status: 401 });
         }
 
-        const res = await fetch(`https://aisandbox-pa.googleapis.com/v1/whisk:generateImage`, {
+
+        const res = await fetch(`https://aisandbox-pa.googleapis.com/v1/video:batchCheckAsyncVideoGenerationStatus`, {
             method: "POST",
             headers: {
                 authorization: 'Bearer ' + token,
             },
             body: JSON.stringify({
-                "clientContext": {
-                    "workflowId": workflowId,
-                    "tool": "BACKBONE",
-                    "sessionId": ";" + Array.from({ length: 13 }, () => Math.floor(Math.random() * 10)).join('')
-                },
-                "imageModelSettings": {
-                    "imageModel": "IMAGEN_3_5",
-                    "aspectRatio": "IMAGE_ASPECT_RATIO_PORTRAIT"
-                },
-                "seed": 442806,
-                "prompt": prompt,
-                "mediaCategory": "MEDIA_CATEGORY_BOARD"
+                "operations": [
+                    {
+                        "operation": {
+                            "name": name
+                        },
+                        "sceneId": screenId,
+                        "status": "MEDIA_GENERATION_STATUS_PENDING"
+                    }
+                ]
             })
         });
+
+    
 
         if (!res.ok) {
             return NextResponse.json({ status: 0, message: "Không có dữ liệu" }, { status: res.status });
         }
 
         const data = await res.json();
+        console.log("Video generation status data:", JSON.stringify(data));
         return NextResponse.json(data);
     } catch (err) {
         console.log('Error during image generation:', err);

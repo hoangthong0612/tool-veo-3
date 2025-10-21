@@ -42,11 +42,32 @@ export default function Home() {
   const [step, setStep] = useState(1); // 1: Input, 2: Asset Mgmt, 3: Results
 
   const [workflowId, setWorkflowId] = React.useState<string | null>(null);
+  const [projectId, setProjectId] = React.useState<string | null>(null);
 
   const fetchWorkflowId = async () => {
 
     try {
       const res = await fetch(`/api/create-workflow`, {
+        method: "GET",
+        credentials: "include", // gửi cookie thật của user nếu cần
+      });
+      if (!res.ok) throw new Error("Không có dữ liệu");
+      const data = await res.json();
+      console.log("Fetched token data:", data);
+      // setWorkflowId(data.status === 1 ? data.workflowId : null);
+      return data;
+    } catch (e) {
+      console.error(e);
+      // setWorkflowId(null);
+      return null;
+    }
+
+  };
+
+  const fetchProjectId = async () => {
+
+    try {
+      const res = await fetch(`/api/create-project`, {
         method: "GET",
         credentials: "include", // gửi cookie thật của user nếu cần
       });
@@ -205,6 +226,9 @@ export default function Home() {
       setScenes(generatedScenes);
       setStep(3);
 
+      const pjId = await fetchProjectId();
+      setProjectId(pjId.status === 1 ? pjId.projectId : null);
+
       for (const [index, scene] of generatedScenes.entries()) {
         const currentScene = scene;
         setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, isGeneratingImage: true } : s));
@@ -212,10 +236,10 @@ export default function Home() {
 
         try {
           const imageData = await aiService.generateImageForScene(currentScene, charactersWithRefs, landscapes, style, workflowId ?? "", aspectRatio);
-          setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, generatedImage: imageData, isGeneratingImage: false, isGeneratingVideo: true } : s));
+          setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, generatedImage: imageData.image, isGeneratingImage: false, isGeneratingVideo: true } : s));
 
           setLoadingMessage(`Generating video for scene ${index + 1}/${generatedScenes.length} (this can take a few minutes)...`);
-          const videoUrl = await aiService.generateVideoForScene(currentScene, imageData, aspectRatio);
+          const videoUrl = await aiService.generateVideoForScene(currentScene, imageData, aspectRatio, projectId ?? "");
           setScenes(prev => prev.map(s => s.sceneNumber === currentScene.sceneNumber ? { ...s, generatedVideoUrl: videoUrl, isGeneratingVideo: false } : s));
         } catch (e) {
           console.error(`Error processing scene ${currentScene.sceneNumber}:`, e);
