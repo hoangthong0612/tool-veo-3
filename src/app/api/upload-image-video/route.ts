@@ -4,7 +4,6 @@ import { json } from "stream/consumers";
 export async function POST(request: Request) {
     try {
         const { imageData, aspectRatio, prompt, projectId }: { imageData: any, aspectRatio: string, prompt: string, projectId: string } = await request.json();
-        console.log("Received upload-image-video request with:", { imageData, aspectRatio, prompt, projectId });
         if (!imageData) {
             return NextResponse.json({ status: 0, message: "Thiếu tham số" }, { status: 400 });
         }
@@ -26,10 +25,7 @@ export async function POST(request: Request) {
         let aspectRatioSetting = "VIDEO_ASPECT_RATIO_PORTRAIT";
         if (aspectRatio === '16:9') {
             aspectRatioSetting = "VIDEO_ASPECT_RATIO_LANDSCAPE";
-        } else if (aspectRatio === '1:1') {
-            aspectRatioSetting = "VIDEO_ASPECT_RATIO_SQUARE";
-        }
-
+        } 
         const res = await fetch(`https://aisandbox-pa.googleapis.com/v1/video:batchAsyncGenerateVideoStartImage`, {
             method: "POST",
             headers: {
