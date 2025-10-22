@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { json } from "stream/consumers";
 
 export async function POST(request: Request) {
     try {
@@ -23,9 +22,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ status: 0, message: "Token không hợp lệ" }, { status: 401 });
         }
         let aspectRatioSetting = "VIDEO_ASPECT_RATIO_PORTRAIT";
+        let ModelKey = "veo_3_1_i2v_s_fast_portrait_ultra";
         if (aspectRatio === '16:9') {
             aspectRatioSetting = "VIDEO_ASPECT_RATIO_LANDSCAPE";
-        } 
+            ModelKey = "veo_3_1_i2v_s_fast_ultra";
+        }
         const res = await fetch(`https://aisandbox-pa.googleapis.com/v1/video:batchAsyncGenerateVideoStartImage`, {
             method: "POST",
             headers: {
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
                                 }
                             ]
                         },
-                        "videoModelKey": "veo_3_1_i2v_s_fast_ultra",
+                        "videoModelKey": ModelKey,
                         "startImage": {
                             "mediaId": imageData.id
                         },
@@ -72,7 +73,6 @@ export async function POST(request: Request) {
         }
 
         const data = await res.json();
-        console.log("Video generation response data:", JSON.stringify(data));
         return NextResponse.json(data);
     } catch (err) {
         console.log('Error during image generation:', err);
